@@ -7,7 +7,7 @@ import re
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde archivo .env
-load_dotenv()
+load_dotenv(override=True)
 
 # Configuración de la página
 st.set_page_config(
@@ -234,6 +234,42 @@ st.markdown("""
         margin-bottom: 1rem;
         text-align: center;
     }
+
+    .coupon-card {
+        background: linear-gradient(160deg, #ffffff 0%, #eff6ff 100%);
+        border: 2px dashed #3b82f6;
+        border-radius: 16px;
+        padding: 1.1rem 1.2rem 1rem 1.2rem;
+        margin: 0.4rem 0 0.8rem 0;
+        box-shadow: 0 4px 14px rgba(30, 64, 175, 0.12);
+        min-height: 180px;
+    }
+
+    .coupon-emoji {
+        font-size: 1.8rem;
+        margin-bottom: 0.2rem;
+    }
+
+    .coupon-title {
+        color: #1e40af;
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin: 0.15rem 0 0.4rem 0;
+    }
+
+    .coupon-text {
+        color: #1e3a8a;
+        font-size: 0.98rem;
+        line-height: 1.55;
+        margin: 0;
+    }
+
+    .coupon-valid {
+        color: #2563eb;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-top: 0.7rem;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -261,7 +297,7 @@ if not st.session_state.authenticated:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
-        pin_input = st.text_input("Ingresa el PIN especial ¿Cuál será?:", type="password", key="pin")
+        pin_input = st.text_input("Ingresa el PIN especial:", type="password", key="pin")
         
         if st.button("✨ Entrar ✨", use_container_width=True, type="primary"):
             if check_pin(pin_input):
@@ -592,13 +628,6 @@ if st.session_state.authenticated:
                     </script>
                 """, unsafe_allow_html=True)
                 
-                # Reproductor visible en un expander (colapsable)
-                with st.expander("🎵 Ver Reproductor de Video", expanded=False):
-                    st.markdown(f"""
-                        <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 15px; box-shadow: 0 5px 20px rgba(30, 64, 175, 0.2);">
-                            <iframe src="{embed_url}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-                        </div>
-                    """, unsafe_allow_html=True)
         else:
             # Reproductor de audio normal
             st.markdown(f"""
@@ -844,7 +873,14 @@ if st.session_state.authenticated:
         {
             "year": "2025",
             "event": "Maita",
+            "image": "image/eco_maita.jpeg",
             "description": "La mejor noticia de todas: ¡estamos esperando a Maita! El mayor regalo que la vida nos ha dado. Nuestra familia crece con amor."
+        },
+        {
+            "year": "2026",
+            "event": "Llegó Maita",
+            "image": "image/maita_y_mama.png",
+            "description": "Estos últimos 10 meses con Maita no han sido fáciles. Hemos atravesado etapas difíciles, sobre todo por la cuestión del parto, que nos puso a prueba como nunca. Pero hoy, con Maita entre nosotros, sabemos que cada momento difícil valió la pena, porque de ellos nació algo hermoso: una familia fuerte, unida y muy amorosa. Maita nos ha enseñado a ser más pacientes, más fuertes y a valorar cada sonrisa. Gracias por tu fuerza, tu paciencia y tu amor. Ahora empieza la parte más bonita de nuestra historia, y la vivimos juntos, de la mano, como siempre."
         }
     ]
     
@@ -881,17 +917,126 @@ if st.session_state.authenticated:
     
     # Mostrar el contenido del evento seleccionado
     selected_item = timeline[st.session_state.selected_timeline_index]
-    st.markdown(f"""
-        <div class="timeline-content">
-            <div class="timeline-content-year">{selected_item['year']}</div>
-            <div class="timeline-content-event">{selected_item['event']}</div>
-            <div class="timeline-content-text">{selected_item['description']}</div>
-        </div>
-    """, unsafe_allow_html=True)
+
+    # Foto dentro de la tarjeta (se reduce y se incrusta en base64 para que quede dentro del HTML)
+    photo_html = ""
+    if selected_item.get('image') and os.path.exists(selected_item['image']):
+        import base64
+        import io
+        from PIL import Image
+
+        @st.cache_data
+        def load_card_photo_b64(path, max_width=700):
+            img = Image.open(path).convert("RGB")
+            img.thumbnail((max_width, max_width))
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            return base64.b64encode(buf.getvalue()).decode()
+
+        photo_b64 = load_card_photo_b64(selected_item['image'])
+        photo_alt = selected_item["event"]
+        photo_html = f'<img src="data:image/jpeg;base64,{photo_b64}" class="message-image" alt="{photo_alt}" />'
+
+    # Sin líneas en blanco ni sangría: si no, Streamlit muestra el HTML como texto
+    card_parts = [
+        '<div class="timeline-content">',
+        f'<div class="timeline-content-year">{selected_item["year"]}</div>',
+        f'<div class="timeline-content-event">{selected_item["event"]}</div>',
+    ]
+    if photo_html:
+        card_parts.append(photo_html)
+    card_parts.append(f'<div class="timeline-content-text">{selected_item["description"]}</div>')
+    card_parts.append('</div>')
+    st.markdown("".join(card_parts), unsafe_allow_html=True)
     
-    # Mensajes de Maita
+    # Mensajes de Maita ya nacida (10 meses), escritos desde su perspectiva
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### 👶 Mensajes de Maita 👶")
+
+    maita_nacida_messages = [
+        {
+            "title": "💙 Mamá, Ya Llevo 10 Meses Contigo 💙",
+            "text": "Mamita hermosa, ¿sabes? Ya llevo 10 meses contigo y cada día me siento más feliz de estar a tu lado. Al principio no sabía nada del mundo, pero tu voz, tus caricias y tus abrazos me enseñaron que aquí, en tus brazos, es donde yo pertenezco.<br><br>Me encanta cuando me cantas, cuando me platicas cosas aunque todavía no te entienda del todo, y cuando me miras con esos ojos llenos de amor. Siento que cada mañana me recibes con una sonrisa, y eso me hace sentir la bebé más afortunada del mundo.<br><br>Gracias por tu paciencia cuando no puedo dormir, por tus manos que me sostienen y por tu voz que me calma cuando estoy inquieta. Gracias por cuidarme en las noches, por velar mis sueños, por sostenerme cuando lloro y por reír conmigo cuando hago mis ocurrencias. Gracias por cambiarme, alimentarme, abrazarme y no soltarme cuando más lo necesito. Nunca imaginé que el amor pudiera sentirse tan grande y tan cálido.<br><br>Estoy muy feliz de estar contigo, mamá. Eres mi lugar seguro, mi casa, mi mejor compañía y mi heroína favorita. Aunque todavía no sé decir todo lo que siento, quiero que sepas que te agradezco con todo mi corazón por tu amor, por tu tiempo y por hacer de nuestra familia algo tan bonito, tan fuerte y tan lleno de cariño.<br><br>Te prometo que siempre voy a quererte, a buscarte con la mirada y a llenar tu día de sonrisas. Te quiero muchísimo, mamita. Con todo mi amor y gratitud, te doy el abrazo más grande que puedo."
+        },
+        {
+            "title": "🌟 Chiquita Pero Muy Lista y Traviesa 🌟",
+            "text": "Mamá, sé que a veces te preocupas porque todavía soy muy chiquita, y quiero que sepas que estoy echándole muchísimas ganas a crecer. Cada día aprendo algo nuevo: a intentar caminar, a agarrar mis juguetes, a mirar con curiosidad todo lo que me rodea.<br><br>No te preocupes por mi tamaño. Puede que sea pequeña, pero tengo una mente muy inteligente y un corazón muy valiente. Ya me doy cuenta de muchas cosas, y estoy segura de que pronto voy a sorprenderte con todo lo que puedo hacer.<br><br>También soy muy traviesa, lo sé. Me gusta tirar las cosas para ver qué pasa y reírme cuando me miras con cara de sorpresa. ¡Ya tengo muchos planes para nuestras aventuras!<br><br>Imagina todo lo que vamos a explorar juntas: parques llenos de árboles, cuentos antes de dormir, días de playa y comer arena. Tú me vas a enseñar el mundo, y yo te voy a enseñar a sonreír todavía más.<br><br>Así que tranquila, mamá. Yo ya estoy lista para vivir mil aventuras contigo."
+        }
+    ]
+
+    for msg in maita_nacida_messages:
+        with st.expander(f"**{msg['title']}**", expanded=False):
+            st.markdown(f"""
+                <div class="message-card baby-message">
+                    <p style="color: #1e3a8a; font-size: 1.1rem; line-height: 1.8;">{msg['text']}</p>
+                    <p style="color: #1e40af; font-size: 1.3rem; font-weight: 600; margin-top: 1.5rem; text-align: center;">
+                        Con todo mi amor, Maita 💙
+                    </p>
+                </div>
+            """, unsafe_allow_html=True)
+
+    # Mensaje del esposo
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### 🦖 Mensajes de danonino 🦖")
+    
+    esposo_messages = [
+        {
+            "title": "💕 Para Mi Esposa, Mi Todo 💕",
+            "text": """Mi amor, en este día tan especial quiero decirte que soy el hombre más feliz y bendecido del mundo. Tenerte como mi esposa sigue siendo el mayor regalo que la vida me ha dado, y ahora, con Maita ya entre nosotros, con sus 10 meses de risas, travesuras y noches largas, esa felicidad se multiplica todos los días.<br>
+                       <br>Estos meses no han sido fáciles. El parto nos puso a prueba y hubo etapas duras, pero verte cuidar de nuestra hija, con esa fuerza y ese amor tan grande, me llena de orgullo. Gracias por ser la mamá de Maita, por no soltarnos y por seguir siendo mi casa.<br>
+                       <br>Te amo más de lo que las palabras pueden expresar. Feliz cumpleaños, mi vida. Que este nuevo año esté lleno de salud, descanso y felicidad para las tres.
+                    """,
+            #"image": "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=500&h=400&fit=crop"
+        }
+    ]
+
+    for msg in esposo_messages:
+        with st.expander(f"**{msg['title']}**", expanded=False):
+            # Mostrar imagen si existe
+            if msg.get('image'):
+                st.image(msg['image'], use_container_width=True, caption="")
+            st.markdown(f"""
+                <div class="message-card husband-message">
+                    <p style="color: #1e3a8a; font-size: 1.2rem; line-height: 2;">{msg['text']}</p>
+                    <p style="color: #1e40af; font-size: 1.3rem; font-weight: 600; margin-top: 1.5rem; text-align: center;">
+                        Con todo mi amor, tu esposo 💙
+                    </p>
+                </div>
+            """, unsafe_allow_html=True)
+
+    cupones = [
+        ("💆", "Masaje de media hora", "Un masaje lento, sin prisa y con las manos de danonino. Tú solo te acuestas y respiras."),
+        ("⏳", "Tiempo libre", "Yo me quedo con Maita. Tú sales, lees, caminas o no haces absolutamente nada. Mínimo una hora."),
+        ("🧀", "Chetos o papitas de emergencia", "Los chetos o papitas que se te antojen, el día que se te antoje. Yo lo consigo y te lo llevo."),
+        ("🍳", "Desayuno en la cama", "Café, algo rico y cero prisa. Yo lo preparo. Tú solo despiertas y lo disfrutas."),
+        ("😴", "Siesta protegida", "Mientras tú duermes, yo cuido a Maita. Nadie te despierta hasta que tú quieras."),
+        ("🤗", "Abrazo sin límite", "Un abrazo largo, de esos que no se sueltan hasta que tú digas que ya."),
+    ]
+
+    with st.expander("**🎟️ Tu cuponera de cumpleaños 🎟️**", expanded=False):
+        st.markdown(
+            '<p style="color: #1e3a8a; font-size: 1.05rem; line-height: 1.7; margin-bottom: 0.6rem;">'
+            "Mi amor, estos cupones no se vencen. Los canjeas cuando quieras, con una mirada, un mensaje o simplemente diciendo “danonino, este”."
+            "</p>",
+            unsafe_allow_html=True,
+        )
+        for i in range(0, len(cupones), 2):
+            cols = st.columns(2)
+            for col, (emoji, titulo, texto) in zip(cols, cupones[i:i + 2]):
+                with col:
+                    st.markdown(
+                        f'<div class="coupon-card">'
+                        f'<div class="coupon-emoji">{emoji}</div>'
+                        f'<div class="coupon-title">{titulo}</div>'
+                        f'<p class="coupon-text">{texto}</p>'
+                        f'<div class="coupon-valid">Válido todo el año</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+    # Mensajes de Maita
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### 👶 Mensajes de Maita en el vientre 👶")
     
     maita_messages = [
         {
@@ -932,35 +1077,6 @@ if st.session_state.authenticated:
                 </div>
             """, unsafe_allow_html=True)
     
-    # Mensaje del esposo
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 🦖 Mensajes de danonino 🦖")
-    
-    esposo_messages = [
-        {
-            "title": "💕 Para Mi Esposa, Mi Todo 💕",
-            "text": """Mi amor, en este día tan especial quiero decirte que soy el hombre más feliz y bendecido del mundo. Tenerte como mi esposa es el mayor regalo que la vida me ha dado, y ahora, con Maita en camino, mi felicidad se multiplica infinitamente.<br>
-                       <br>Gracias por darme la dicha de ser el papá de nuestra hija. Gracias por ser tan fuerte, tan amorosa, y tan increíble. Ver cómo cuidas de Maita y de nosotros me llena de orgullo y admiración.<br>
-                       <br>Te amo más de lo que las palabras pueden expresar. Feliz cumpleaños, mi vida. Que este nuevo año esté lleno de amor, salud y felicidad para las tres.
-                    """,
-            #"image": "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=500&h=400&fit=crop"
-        }
-    ]
-
-    for msg in esposo_messages:
-        with st.expander(f"**{msg['title']}**", expanded=False):
-            # Mostrar imagen si existe
-            if msg.get('image'):
-                st.image(msg['image'], use_container_width=True, caption="")
-            st.markdown(f"""
-                <div class="message-card husband-message">
-                    <p style="color: #1e3a8a; font-size: 1.2rem; line-height: 2;">{msg['text']}</p>
-                    <p style="color: #1e40af; font-size: 1.3rem; font-weight: 600; margin-top: 1.5rem; text-align: center;">
-                        Con todo mi amor, tu esposo 💙
-                    </p>
-                </div>
-            """, unsafe_allow_html=True)
-
     # Imagen del mensaje del esposo
     #husband_image = "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=500&h=400&fit=crop"
     #st.image(husband_image, use_container_width=True, caption="")
